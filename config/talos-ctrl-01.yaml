@@ -3,10 +3,10 @@ machine:
     interfaces:
       - deviceSelector:
           driver: virtio_net
-          hardwareAddr: "BC:24:11:*"
+          hardwareAddr: "bc:24:11:*"
         addresses:
-        - 192.168.10.150
+        - 192.168.20.150
         routes:
         - network: 0.0.0.0/0 # The route's network (destination).
-          gateway: 192.168.10.1 # The route's gateway (if empty, creates link scope route).
+          gateway: 192.168.20.1 # The route's gateway (if empty, creates link scope route).
     hostname: talos-ctrl-01
