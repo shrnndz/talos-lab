@@ -1,27 +1,14 @@
+### Getting machine information
 
-### Set the control plane IP
-
-```bash
-CONTROL_PLANE_IP=192.168.0.197
-```
-
-### Generate the configs
-
-```bash
-talosctl gen config talos-cluster https://$CONTROL_PLANE_IP:6443 --output-dir config
-```
-
-### If necessary, get disk information
+To get disk info;
 
 ```bash
 talosctl get disks --insecure --nodes $CONTROL_PLANE_IP
 ```
 
-
+To get network info:
 ```bash
-export TALOSCONFIG="config/talosconfig"
-talosctl config endpoint $CONTROL_PLANE_IP
-talosctl config node $CONTROL_PLANE_IP
+talosctl get link --nodes 192.168.20.150
 ```
 
 ### Relevant traefik config
@@ -53,14 +40,67 @@ tcp:
           - address: 192.168.10.151:6443
 ```
 
-### Gen Control plane
-
-```bash
-talosctl gen config talos-proxmox-cluster https://$CONTROL_PLANE_IP:6443 --output-dir config --install-image factory.talos.dev/installer/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515:v1.9.2
-```
-
 ### Gen A Control Plane Config for A Specific Machine
 
 ```bash
-talosctl gen config proxmox-cluster https://192.168.10.155:6443 --with-secrets secrets.yaml --output-types controlplane --config-patch @controlplane/control-plane-common.yaml --config-patch-control-plane @controlplane/talos-ctrl-01.yaml --output temp/talos-ctrl-01.yaml
+talosctl gen config proxmox-cluster https://$CLUSTER_IP:6443 --with-secrets secrets.yaml --output-types controlplane --config-patch @controlplane/control-plane-common.yaml --config-patch-control-plane @controlplane/talos-ctrl-$MACHINE_COUNT.yaml --output temp/talos-ctrl-$MACHINE_COUNT.yaml
+```
+
+### Gen a Worker Config
+
+```bash
+talosctl gen config proxmox-cluster https://$CLUSTER_IP:6443 --with-secrets secrets.yaml --output-types worker --config-patch @config/control-plane-common.yaml --output temp/worker.yaml
+```
+
+### Gen the talosconf
+
+```bash
+talosctl gen config proxmox-cluster https://$CLUSTER_IP:6443 --with-secrets secrets.yaml --output-types talosconfig --config-patch @config/control-plane-common.yaml
+```
+
+### Install Cilium
+
+```bash
+helm install \
+    cilium \
+    cilium/cilium \
+    --version 1.17.2 \
+    --namespace kube-system \
+    --set ipam.mode=kubernetes \
+    --set externalIPs.enabled=true \
+    --set kubeProxyReplacement=true \
+    --set securityContext.capabilities.ciliumAgent="{CHOWN,KILL,NET_ADMIN,NET_RAW,IPC_LOCK,SYS_ADMIN,SYS_RESOURCE,DAC_OVERRIDE,FOWNER,SETGID,SETUID}" \
+    --set securityContext.capabilities.cleanCiliumState="{NET_ADMIN,SYS_ADMIN,SYS_RESOURCE}" \
+    --set cgroup.autoMount.enabled=false \
+    --set cgroup.hostRoot=/sys/fs/cgroup \
+    --set devices='{ens+}' \
+    --set k8sServiceHost=localhost \
+    --set k8sServicePort=7445 \
+    --set l2announcements.enabled=true \
+    --set l2announcements.leaseDuration=3s \
+    --set l2announcements.leaseRenewDeadline=1s \
+    --set l2announcements.leaseRetryPeriod=200ms \
+    --set k8sClientRateLimit.qps=10 \
+    --set k8sClientRateLimit.burst=20 
+```
+
+Configure the l2 policies
+
+```yaml
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumL2AnnouncementPolicy
+metadata:
+  name: core
+spec:
+  #serviceSelector:
+    #matchLabels:
+      #color: blue
+  #nodeSelector:
+    #matchExpressions:
+      #- key: node-role.kubernetes.io/control-plane
+        #operator: DoesNotExist
+  interfaces:
+  - ^ens[0-9]+
+  externalIPs: true
+  loadBalancerIPs: true
 ```

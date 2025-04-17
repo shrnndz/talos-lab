@@ -39,8 +39,8 @@ spec:
           capabilities:
             drop:
               - "ALL"
-          allowPrivilegeEscalation: false
-          runAsUser: 1000
-          runAsGroup: 1000
-          privileged: false
-          runAsNonRoot: true
+          # allowPrivilegeEscalation: false
+          # runAsUser: 1000
+          # runAsGroup: 1000
+          # privileged: false
+          # runAsNonRoot: true
