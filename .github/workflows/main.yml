@@ -1,0 +1,23 @@
+name: 'Chet wouck Vars'
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  network-check:
+    name: 'Network Check'
+    runs-on: ubuntu-latest
+
+    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Echo Vars
+        run: echo "${{ vars.VALUES_FILE }}"

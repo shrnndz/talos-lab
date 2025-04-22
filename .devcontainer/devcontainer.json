@@ -13,7 +13,8 @@
 			"extensions": [
 				"ms-azuretools.vscode-docker",
 				"eamodio.gitlens",
-				"nefrob.vscode-just-syntax"
+				"nefrob.vscode-just-syntax",
+				"github.vscode-github-actions"
 			]
 		}
 	},
