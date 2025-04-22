@@ -1,0 +1,8 @@
+ingressRoute:
+  dashboard:
+    entryPoints: 
+    - websecure
+    enabled: true
+    services:
+    - name: api@internal
+      kind: TraefikService
