@@ -1,4 +1,4 @@
-name: 'Chet wouck Vars'
+name: 'Check Out Vars'
 
 on:
   push:
@@ -20,4 +20,4 @@ jobs:
         shell: bash
     steps:
       - name: Echo Vars
-        run: echo "${{ vars.VALUES_FILE }}"
+        run: echo "Hello world"

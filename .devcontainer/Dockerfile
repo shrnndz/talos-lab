@@ -4,11 +4,11 @@ ARG username=shernandez
 
 USER root
 
-COPY .devcontainer/kubernetes.repo /etc/yum.repos.d/
+COPY .devcontainer/*.repo /etc/yum.repos.d/
 
 # If this doesn't change much, this layer should rarely need to be rebuilt
 RUN dnf update && \ 
-    dnf install git zsh awk yq vim ssh just openssl python3 python3-pip -y && \
+    dnf install git zsh awk yq vim ssh just openssl tofu python3 python3-pip -y && \
     useradd ${username} && \
     echo "${username} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
