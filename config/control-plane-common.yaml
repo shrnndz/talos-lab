@@ -6,14 +6,14 @@ machine:
     - 192.168.20.155
   network:
     nameservers:
+      - 192.168.20.10
       - 192.168.10.10
-      - 192.168.10.11
     searchDomains:
       - hernanfam.com
   install:
-      disk: /dev/sda # The disk used for installations.
-      image: factory.talos.dev/installer-secureboot/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515:v1.9.5 # Allows for supplying the image used to perform the installation.
-      wipe: false # Indicates if the installation disk should be wiped at installation time.
+    disk: /dev/sda # The disk used for installations.
+    image: factory.talos.dev/metal-installer-secureboot/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515:v1.10.5 # Allows for supplying the image used to perform the installation.
+    wipe: true # Indicates if the installation disk should be wiped at installation time.
 cluster:
   network:
     cni:
@@ -25,6 +25,7 @@ cluster:
     endpoint: https://192.168.20.155:6443 # Endpoint is the canonical controlplane endpoint, which can be an IP address or a DNS hostname.
   apiServer:
     certSANs:
+      - 192.168.20.150
       - 192.168.20.151
       - 192.168.20.152
       - 192.168.20.155
