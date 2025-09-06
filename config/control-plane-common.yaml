@@ -29,3 +29,10 @@ cluster:
       - 192.168.20.151
       - 192.168.20.152
       - 192.168.20.155
+    extraArgs:
+      oidc-issuer-url: https://auth.hernanfam.com/realms/hernanfam
+      oidc-client-id: kubernetes
+      oidc-username-claim: sub
+      oidc-username-prefix: "oidc:"
+      oidc-groups-prefix: "oidc:"
+      oidc-groups-claim: groups

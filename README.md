@@ -1,3 +1,13 @@
+# Setup
+
+## Genereate your secrets
+
+First thing you will need is a `secrets.yaml` file, this will be used to intract with the cluster once provisioned
+
+```bash
+talosctl gen secrets --output-file secrets.yaml
+```
+
 ### Getting machine information
 
 To get disk info;

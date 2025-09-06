@@ -1,4 +1,4 @@
-FROM fedora:42@sha256:83ca5776c0a9bc9fad2267a3c355f27f56f08f9acbb1b4e5a8bf751baa46646e
+FROM fedora:42
 
 ARG username=shernandez
 
