@@ -65,9 +65,7 @@ spec:
             - name: KC_HTTP_ENABLED
               value: "true"
             - name: KC_HOSTNAME_STRICT
-              value: "true"
-            - name: KC_HOSTNAME
-              value: "https://auth.hernanfam.com"
+              value: "false"
             - name: KC_HEALTH_ENABLED
               value: "true"
             - name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC
@@ -159,6 +157,25 @@ spec:
     secretName: keycloak-tls
 
 ---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    external-dns.alpha.kubernetes.io/target: tint.cercado.io
+  name: keycloak-cercado
+  namespace: keycloak
+spec:
+  routes:
+    - kind: Rule
+      match: Host(`auth.cercado.io`)
+      services:
+        - kind: Service
+          name: keycloak
+          port: 8080
+  tls:
+    secretName: keycloak-tls
+
+---
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -167,6 +184,7 @@ metadata:
 spec:
   dnsNames:
     - auth.hernanfam.com
+    - auth.cercado.io
   issuerRef:
     kind: ClusterIssuer
     name: cloudflare-issuer
