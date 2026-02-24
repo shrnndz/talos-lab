@@ -3,6 +3,7 @@ ingressRoute:
     entryPoints:
       - websecure
     enabled: true
+    matchRule: Host(`tint.hernanfam.com`)
     services:
       - name: api@internal
         kind: TraefikService

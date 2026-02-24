@@ -1,0 +1,55 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: argocd-server
+  namespace: argocd
+  annotations:
+    external-dns.alpha.kubernetes.io/target: tint.cercado.io
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`argocd.cercado.io`)
+      priority: 10
+      services:
+        - name: argocd-server
+          port: 80
+    - kind: Rule
+      match: Host(`argocd.cercado.io`) && Header(`Content-Type`, `application/grpc`)
+      priority: 11
+      services:
+        - name: argocd-server
+          port: 80
+          scheme: h2c
+  tls:
+    secretName: argo-tls
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: argo-tls
+  namespace: argocd
+spec:
+  dnsNames:
+    - argocd.cercado.io
+  issuerRef:
+    kind: ClusterIssuer
+    name: cloudflare-issuer
+  secretName: argo-tls
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  url: https://argocd.cercado.io
+  oidc.config: |
+    name: Keycloak
+    issuer: https://auth.cercado.io/realms/hernanfam
+    clientID: argocd
+    enablePKCEAuthentication: true
+    refreshTokenThreshold: 2m
+    requestedScopes: ["openid", "profile", "email", "groups"]
+  policy.csv: |
+    g, argocd-admins, role:admin

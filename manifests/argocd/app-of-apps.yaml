@@ -1,0 +1,123 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: cercado-api
+  namespace: argocd
+  # Finalizer that ensures that project is not deleted until it is not referenced by any application
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: Project for cercado-api
+  # Allow manifests to deploy from any Git repos
+  sourceRepos:
+    - "*"
+  # Only permit applications to deploy to the guestbook namespace in the same cluster
+  destinations:
+    - namespace: cercado-api*
+      server: https://kubernetes.default.svc
+      name: in-cluster
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cercado-api
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - scmProvider:
+        cloneProtocol: https
+        github:
+          appSecretName: creds-1178506064
+          # The GitHub organization to scan.
+          organization: cercado-dev
+          # If true, scan every branch of every repository. If false, scan only the default branch. Defaults to false.
+          allBranches: true
+        filters:
+          # Include any repository starting with "myapp" AND including a Kustomize config AND labeled with "deploy-ok" ...
+          - branchMatch: main
+            pathsExist: [deploy]
+          # ... OR include any repository starting with "otherapp" AND a Helm folder and doesn't have file disabledrepo.txt.
+          - branchMatch: ^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
+            pathsExist: [deploy]
+  template:
+    metadata:
+      name: "{{ .repository }}-{{ .branch }}"
+    spec:
+      source:
+        repoURL: "{{ .url }}"
+        targetRevision: "{{ .branch }}"
+        path: deploy/helm
+      project: cercado-api
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{ .repository }}-{{ .branch }}"
+      syncPolicy:
+        automated:
+          enabled: true
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cercado-api-pr
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - matrix:
+        generators:
+          - scmProvider:
+              cloneProtocol: https
+              github:
+                appSecretName: creds-1178506064
+                # The GitHub organization to scan.
+                organization: cercado-dev
+                # If true, scan every branch of every repository. If false, scan only the default branch. Defaults to false.
+                allBranches: false
+              values:
+                url: "{{ .url }}"
+          - pullRequest:
+              github:
+                # The GitHub organization or user.
+                owner: "{{ .organization }}"
+                # The Github repository
+                repo: "{{ .repository }}"
+                # (optional) use a GitHub App to access the API instead of a PAT.
+                appSecretName: creds-1178506064
+                # Labels is used to filter the PRs that you want to target. (optional)
+              filters:
+              - targetBranchMatch: main
+              requeueAfterSeconds: 300
+  template:
+    metadata:
+      name: "{{ .repository }}-{{ .head_short_sha }}-pr-{{ .number }}"
+    spec:
+      source:
+        repoURL: "{{ .values.url }}"
+        targetRevision: "{{ .head_sha }}"
+        path: deploy/helm
+      project: cercado-api
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{ .repository }}-{{ .head_short_sha }}-pr-{{ .number }}"
+      syncPolicy:
+        automated:
+          enabled: true
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
