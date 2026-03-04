@@ -1,0 +1,42 @@
+# This is the only service account we can use to access the secrets in the infra vault
+# Role is defined here: https://bao.cercado.io/ui/vault/access/kubernetes/item/role/show/infra-read-only
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: es-openbao
+  namespace: default
+  annotations:
+    cercado.io/use: infrastructure
+
+---
+
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: openbao
+spec:
+  provider:
+    vault:
+      server: "https://bao.cercado.io"
+      path: "infra"
+      version: "v2"
+      auth:
+        # Authenticate against Vault using a Kubernetes ServiceAccount
+        # token stored in a Secret.
+        # https://www.vaultproject.io/docs/auth/kubernetes
+        kubernetes:
+          # Path where the Kubernetes authentication backend is mounted in Vault
+          mountPath: "kubernetes"
+          # A required field containing the Vault Role to assume.
+          role: "infra-read-only"
+          # Optional service account field containing the name
+          # of a kubernetes ServiceAccount
+          serviceAccountRef:
+            name: "es-openbao"
+            namespace: default
+  conditions:
+    # Options are namespaceSelector, namespaces or namespacesRegex
+    - namespaces:
+        - "docker-config-testing"
+    - namespaceRegexes:
+        - "cercado*" # All namespaces prefixed by namespace-a- will work

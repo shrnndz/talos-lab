@@ -42,10 +42,10 @@ spec:
           # If true, scan every branch of every repository. If false, scan only the default branch. Defaults to false.
           allBranches: true
         filters:
-          # Include any repository starting with "myapp" AND including a Kustomize config AND labeled with "deploy-ok" ...
+          # Include any repository that contains a main branch with a deploy directory
           - branchMatch: main
             pathsExist: [deploy]
-          # ... OR include any repository starting with "otherapp" AND a Helm folder and doesn't have file disabledrepo.txt.
+          # Include any repository that contains a symantic version tag with a deploy directory
           - branchMatch: ^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
             pathsExist: [deploy]
   template:
@@ -60,11 +60,13 @@ spec:
       destination:
         server: https://kubernetes.default.svc
         namespace: "{{ .repository }}-{{ .branch }}"
+      # https://argo-cd.readthedocs.io/en/stable/user-guide/auto_sync/#automatic-pruning
       syncPolicy:
         automated:
           enabled: true
           prune: true
           selfHeal: true
+        # https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/
         syncOptions:
           - CreateNamespace=true
 
@@ -78,6 +80,7 @@ spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]
   generators:
+      # https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Generators-Matrix/#using-parameters-from-one-child-generator-in-another-child-generator
     - matrix:
         generators:
           - scmProvider:
@@ -90,6 +93,7 @@ spec:
                 allBranches: false
               values:
                 url: "{{ .url }}"
+            # https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Generators-Pull-Request/#pull-request-generator
           - pullRequest:
               github:
                 # The GitHub organization or user.
@@ -104,7 +108,7 @@ spec:
               requeueAfterSeconds: 300
   template:
     metadata:
-      name: "{{ .repository }}-{{ .head_short_sha }}-pr-{{ .number }}"
+      name: "{{ .repository }}-pr-{{ .number }}"
     spec:
       source:
         repoURL: "{{ .values.url }}"
@@ -113,11 +117,13 @@ spec:
       project: cercado-api
       destination:
         server: https://kubernetes.default.svc
-        namespace: "{{ .repository }}-{{ .head_short_sha }}-pr-{{ .number }}"
+        namespace: "{{ .repository }}-pr-{{ .number }}"
+      # https://argo-cd.readthedocs.io/en/stable/user-guide/auto_sync/#automatic-pruning
       syncPolicy:
         automated:
           enabled: true
           prune: true
           selfHeal: true
+        # https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/
         syncOptions:
           - CreateNamespace=true

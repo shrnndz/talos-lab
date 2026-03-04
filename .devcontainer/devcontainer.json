@@ -17,8 +17,7 @@
 				"ms-azuretools.vscode-docker",
 				"eamodio.gitlens",
 				"nefrob.vscode-just-syntax",
-				"github.vscode-github-actions",
-				"TabbyML.vscode-tabby"
+				"github.vscode-github-actions"
 			]
 		}
 	},

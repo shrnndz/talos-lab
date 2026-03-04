@@ -1,0 +1,33 @@
+# You must create a role that matches service account name and namespace
+# bao write auth/kubernetes/role/demo \
+# bound_service_account_names=demo \
+# bound_service_account_namespaces=demo \
+# policies=kv-read-only \
+# ttl=1h
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: docker-config-testing
+
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: vault-example
+  namespace: docker-config-testing
+spec:
+  refreshInterval: "15s"
+  secretStoreRef:
+    name: openbao
+    kind: ClusterSecretStore
+  target:
+    name: demo-sync
+    template:
+      type: kubernetes.io/dockerconfigjson
+      data:
+        .dockerconfigjson: "{{ .demoData | toString }}"
+  data:
+  - secretKey: demoData
+    remoteRef:
+      key: docker-config

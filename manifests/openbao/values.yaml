@@ -1,0 +1,47 @@
+global:
+  tlsDisable: false
+
+injector:
+  enabled: "false"
+
+server:
+  volumes:
+    - name: tls-certificate
+      secret:
+        defaultMode: 420
+        secretName: openbao-tls
+    - name: secrets-config
+      secret:
+        defaultMode: 420
+        secretName: openbao-secrets-config
+        items:
+          - key: secrets.hcl
+            path: secrets.hcl
+  volumeMounts:
+    - name: secrets-config
+      mountPath: "/openbao/userconfig/secrets.hcl"
+      readOnly: true
+    - name: tls-certificate
+      mountPath: "/openbao/cert"
+      readOnly: true
+  extraArgs: '-config=/openbao/userconfig/secrets.hcl'
+  dataStorage:
+    enabled: false
+  standalone:
+    config: |
+      ui = true
+
+      listener "tcp" {
+        address = "[::]:8200"
+        cluster_address = "[::]:8201"
+        tls_cert_file = "/openbao/cert/tls.crt"
+        tls_key_file = "/openbao/cert/tls.key"
+
+        # Enable unauthenticated metrics access (necessary for Prometheus Operator)
+        #telemetry {
+        #  unauthenticated_metrics_access = "true"
+        #}
+      }
+
+csi:
+  enabled: true
