@@ -1,5 +1,23 @@
 # Install OpenBao with CSI Driver
 
+Before you install, you'll need to pre-populate the postgres credentials in the following format
+
+```sh
+# secrets.hcl
+storage "postgresql" {
+  connection_url = "postgres://<username>:<password>@<ip>:<port>/<database>?sslmode=disable"
+}
+```
+>[!IMPORTANT]
+> You might encounter issues with passwords that contain special characters, as all postgres URLs must
+> be percent-encoded. More information can be found [here](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING-URIS)
+
+Then run the following command to add the secret to k8s:
+
+```sh
+kubectl create secret generic -n openbao openbao-secrets-config --from-file secrets.hcl
+```
+
 Be sure to follow the prerequisites listed [here](https://openbao.org/docs/platform/k8s/csi/installation/) before running the install command. There should be a values file in this directory with the necessary settings, just run
 
 ```bash

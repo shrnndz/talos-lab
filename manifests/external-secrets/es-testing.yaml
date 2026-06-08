@@ -19,7 +19,7 @@ metadata:
 spec:
   refreshInterval: "15s"
   secretStoreRef:
-    name: openbao
+    name: openbao-infa
     kind: ClusterSecretStore
   target:
     name: demo-sync
@@ -31,3 +31,22 @@ spec:
   - secretKey: demoData
     remoteRef:
       key: docker-config
+---
+
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: vault-opaque-example
+  namespace: docker-config-testing
+spec:
+  refreshInterval: "15s"
+  secretStoreRef:
+    name: openbao-cercado-testing
+    kind: ClusterSecretStore
+  target:
+    name: demo-sync-opaque
+  data:
+  - secretKey: mgmt-client-secret
+    remoteRef:
+      key: keycloak
+      property: mgmt-client-secret

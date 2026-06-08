@@ -1,19 +1,19 @@
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: cercado-api
+  name: app-of-apps
   namespace: argocd
   # Finalizer that ensures that project is not deleted until it is not referenced by any application
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  description: Project for cercado-api
+  description: Project for app-of-apps
   # Allow manifests to deploy from any Git repos
   sourceRepos:
     - "*"
   # Only permit applications to deploy to the guestbook namespace in the same cluster
   destinations:
-    - namespace: cercado-api*
+    - namespace: argocd
       server: https://kubernetes.default.svc
       name: in-cluster
   clusterResourceWhitelist:
@@ -22,12 +22,12 @@ spec:
   namespaceResourceWhitelist:
     - group: "*"
       kind: "*"
-
 ---
+
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: cercado-api
+  name: app-of-apps
   namespace: argocd
 spec:
   goTemplate: true
@@ -40,84 +40,42 @@ spec:
           # The GitHub organization to scan.
           organization: cercado-dev
           # If true, scan every branch of every repository. If false, scan only the default branch. Defaults to false.
-          allBranches: true
+          allBranches: false
         filters:
-          # Include any repository that contains a main branch with a deploy directory
-          - branchMatch: main
-            pathsExist: [deploy]
-          # Include any repository that contains a symantic version tag with a deploy directory
-          - branchMatch: ^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
-            pathsExist: [deploy]
+        - pathsExist:
+          - argocd
   template:
     metadata:
-      name: "{{ .repository }}-{{ .branch }}"
+      name: "{{ .repository }}-repository"
     spec:
       source:
         repoURL: "{{ .url }}"
         targetRevision: "{{ .branch }}"
-        path: deploy/helm
-      project: cercado-api
+        path: argocd
+        helm:
+          parameters:
+          - name: "repository.organization"
+            value: "{{.organization }}"
+          - name: "repository.name"
+            value: "{{.repository }}"
+          - name: "repository.id"
+            value: "{{.repository_id }}"
+          - name: "repository.url"
+            value: "{{.url }}"
+          - name: "repository.branch"
+            value: "{{.branch }}"
+          - name: "repository.branchNormalized"
+            value: "{{.branchNormalized }}"
+          - name: "repository.sha"
+            value: "{{.sha}}"
+          - name: "repository.shortSha"
+            value: "{{.short_sha}}"
+          - name: "repository.shortShaSeven"
+            value: "{{.short_sha_7}}"
+      project: app-of-apps
       destination:
         server: https://kubernetes.default.svc
-        namespace: "{{ .repository }}-{{ .branch }}"
-      # https://argo-cd.readthedocs.io/en/stable/user-guide/auto_sync/#automatic-pruning
-      syncPolicy:
-        automated:
-          enabled: true
-          prune: true
-          selfHeal: true
-        # https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/
-        syncOptions:
-          - CreateNamespace=true
-
----
-apiVersion: argoproj.io/v1alpha1
-kind: ApplicationSet
-metadata:
-  name: cercado-api-pr
-  namespace: argocd
-spec:
-  goTemplate: true
-  goTemplateOptions: ["missingkey=error"]
-  generators:
-      # https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Generators-Matrix/#using-parameters-from-one-child-generator-in-another-child-generator
-    - matrix:
-        generators:
-          - scmProvider:
-              cloneProtocol: https
-              github:
-                appSecretName: creds-1178506064
-                # The GitHub organization to scan.
-                organization: cercado-dev
-                # If true, scan every branch of every repository. If false, scan only the default branch. Defaults to false.
-                allBranches: false
-              values:
-                url: "{{ .url }}"
-            # https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Generators-Pull-Request/#pull-request-generator
-          - pullRequest:
-              github:
-                # The GitHub organization or user.
-                owner: "{{ .organization }}"
-                # The Github repository
-                repo: "{{ .repository }}"
-                # (optional) use a GitHub App to access the API instead of a PAT.
-                appSecretName: creds-1178506064
-                # Labels is used to filter the PRs that you want to target. (optional)
-              filters:
-              - targetBranchMatch: main
-              requeueAfterSeconds: 300
-  template:
-    metadata:
-      name: "{{ .repository }}-pr-{{ .number }}"
-    spec:
-      source:
-        repoURL: "{{ .values.url }}"
-        targetRevision: "{{ .head_sha }}"
-        path: deploy/helm
-      project: cercado-api
-      destination:
-        server: https://kubernetes.default.svc
-        namespace: "{{ .repository }}-pr-{{ .number }}"
+        namespace: argocd
       # https://argo-cd.readthedocs.io/en/stable/user-guide/auto_sync/#automatic-pruning
       syncPolicy:
         automated:
