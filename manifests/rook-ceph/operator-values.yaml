@@ -1,0 +1,9 @@
+crds:
+  enabled: true
+
+currentNamespaceOnly: true
+
+enableDiscoveryDaemon: false
+
+monitoring:
+  enabled: false

@@ -122,3 +122,7 @@ spec:
 helm repo add secrets-store-csi-driver https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts
 helm install csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver --namespace kube-system
 ```
+
+### Import an Existing Ceph Cluster with Rook
+
+See [manifests/rook-ceph/README.md](/home/shernandez/Source/talos-lab/manifests/rook-ceph/README.md) for the external-cluster workflow used to connect Kubernetes to a Proxmox-managed Ceph cluster without checking Ceph secrets into git.
