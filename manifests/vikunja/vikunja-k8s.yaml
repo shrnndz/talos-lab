@@ -1,0 +1,297 @@
+# Vikunja 2.5.0 on Kubernetes
+#
+# Required edits before applying:
+#   - Replace every CHANGE_ME value.
+#   - Confirm vikunja.hernanfam.com is the desired hostname.
+#   - Confirm cloudflare-issuer is a ClusterIssuer (change kind if it is an Issuer).
+#   - Confirm the Keycloak realm issuer URL.
+#   - Confirm the external PostgreSQL hostname and TLS mode.
+#   - Confirm the DigitalOcean Spaces bucket name and datacenter region.
+#   - Populate OpenBao KV v2 at vikunja/config before applying.
+#
+# Storage:
+#   Attachments and uploaded backgrounds are stored in a private DigitalOcean
+#   Spaces bucket through Vikunja's S3-compatible storage backend. This manifest
+#   does not require a PersistentVolume or StorageClass.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vikunja
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vikunja-external-secrets
+  namespace: vikunja
+automountServiceAccountToken: false
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: openbao-vikunja
+  namespace: vikunja
+spec:
+  provider:
+    # OpenBao exposes the Vault-compatible API used by this mature ESO provider.
+    vault:
+      server: https://bao.cercado.io
+      path: vikunja
+      version: v2
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: vikunja-external-secrets
+          serviceAccountRef:
+            name: vikunja-external-secrets
+            audiences:
+              - openbao
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: vikunja-secrets
+  namespace: vikunja
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: openbao-vikunja
+    kind: SecretStore
+  target:
+    name: vikunja-secrets
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    - secretKey: database-password
+      remoteRef:
+        key: config
+        property: database-password
+    - secretKey: service-secret
+      remoteRef:
+        key: config
+        property: service-secret
+    - secretKey: oidc-client-secret
+      remoteRef:
+        key: config
+        property: oidc-client-secret
+    - secretKey: spaces-access-key
+      remoteRef:
+        key: config
+        property: spaces-access-key
+    - secretKey: spaces-secret-key
+      remoteRef:
+        key: config
+        property: spaces-secret-key
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vikunja
+  namespace: vikunja
+  labels:
+    app.kubernetes.io/name: vikunja
+spec:
+  replicas: 1
+  # Keep upgrades simple for this single-replica homelab deployment.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vikunja
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vikunja
+    spec:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: vikunja
+          image: vikunja/vikunja:2.5.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+          ports:
+            - name: http
+              containerPort: 3456
+              protocol: TCP
+          env:
+            - name: VIKUNJA_SERVICE_PUBLICURL
+              value: https://vikunja.hernanfam.com/
+            - name: VIKUNJA_SERVICE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: vikunja-secrets
+                  key: service-secret
+
+            - name: VIKUNJA_DATABASE_TYPE
+              value: postgres
+            - name: VIKUNJA_DATABASE_HOST
+              value: postgres1.hernanfam.com:5432
+            - name: VIKUNJA_DATABASE_DATABASE
+              value: vikunja
+            - name: VIKUNJA_DATABASE_USER
+              value: vikunja
+            - name: VIKUNJA_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: vikunja-secrets
+                  key: database-password
+            - name: VIKUNJA_DATABASE_SCHEMA
+              value: public
+            # "require" encrypts the initial connection but does not verify the
+            # server identity. Change this to verify-full once the PostgreSQL CA
+            # is mounted and VIKUNJA_DATABASE_SSLROOTCERT points to it.
+            - name: VIKUNJA_DATABASE_SSLMODE
+              value: disable
+            - name: VIKUNJA_DATABASE_MAXOPENCONNECTIONS
+              value: "20"
+            - name: VIKUNJA_DATABASE_MAXIDLECONNECTIONS
+              value: "5"
+
+            - name: VIKUNJA_AUTH_OPENID_ENABLED
+              value: "true"
+            - name: VIKUNJA_AUTH_OPENID_PROVIDERS_KEYCLOAK_NAME
+              value: Keycloak
+            - name: VIKUNJA_AUTH_OPENID_PROVIDERS_KEYCLOAK_AUTHURL
+              value: https://auth.hernanfam.com/realms/hernanfam
+            - name: VIKUNJA_AUTH_OPENID_PROVIDERS_KEYCLOAK_CLIENTID
+              value: vikunja
+            - name: VIKUNJA_AUTH_OPENID_PROVIDERS_KEYCLOAK_CLIENTSECRET
+              valueFrom:
+                secretKeyRef:
+                  name: vikunja-secrets
+                  key: oidc-client-secret
+            - name: VIKUNJA_AUTH_OPENID_PROVIDERS_KEYCLOAK_SCOPE
+              value: openid profile email
+
+            # Keep local login available until OIDC is fully tested.
+            - name: VIKUNJA_AUTH_LOCAL_ENABLED
+              value: "false"
+            - name: VIKUNJA_SERVICE_ENABLEREGISTRATION
+              value: "false"
+
+            - name: VIKUNJA_FILES_TYPE
+              value: s3
+            - name: VIKUNJA_FILES_S3_ENDPOINT
+              value: https://nyc3.digitaloceanspaces.com
+            - name: VIKUNJA_FILES_S3_BUCKET
+              value: vikunja-hernanfam
+            # DigitalOcean's S3 SDK guidance uses us-east-1 for client signing;
+            # the actual Spaces datacenter is selected by the endpoint above.
+            - name: VIKUNJA_FILES_S3_REGION
+              value: us-east-1
+            - name: VIKUNJA_FILES_S3_ACCESSKEY
+              valueFrom:
+                secretKeyRef:
+                  name: vikunja-secrets
+                  key: spaces-access-key
+            - name: VIKUNJA_FILES_S3_SECRETKEY
+              valueFrom:
+                secretKeyRef:
+                  name: vikunja-secrets
+                  key: spaces-secret-key
+            - name: VIKUNJA_FILES_S3_USEPATHSTYLE
+              value: "false"
+            - name: VIKUNJA_FILES_S3_DISABLESIGNING
+              value: "false"
+            - name: VIKUNJA_FILES_MAXSIZE
+              value: 20MB
+            - name: VIKUNJA_LOG_FORMAT
+              value: structured
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            # The official image may need writable cache space even with a
+            # read-only root filesystem.
+            - name: cache
+              mountPath: /.cache
+          startupProbe:
+            tcpSocket:
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vikunja
+  namespace: vikunja
+  labels:
+    app.kubernetes.io/name: vikunja
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: vikunja
+  ports:
+    - name: http
+      port: 3456
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: vikunja
+  namespace: vikunja
+spec:
+  secretName: vikunja-tls
+  dnsNames:
+    - vikunja.hernanfam.com
+  issuerRef:
+    name: cloudflare-issuer
+    kind: ClusterIssuer
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: vikunja
+  namespace: vikunja
+  annotations:
+    external-dns.alpha.kubernetes.io/target: tint.hernanfam.com
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`vikunja.hernanfam.com`)
+      priority: 10
+      services:
+        - name: vikunja
+          port: 3456
+  tls:
+    secretName: vikunja-tls
