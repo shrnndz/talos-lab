@@ -15,7 +15,6 @@
 		"vscode": {
 			"extensions": [
 				"ms-azuretools.vscode-docker",
-				"eamodio.gitlens",
 				"nefrob.vscode-just-syntax",
 				"github.vscode-github-actions",
 				"openai.chatgpt"
@@ -27,12 +26,6 @@
 			"type": "bind",
 			"source": "${localEnv:HOME}",
 			"target": "/home/shernandez"
-		},
-		// Binding the usb bus so I can use my FIDO key
-		{
-			"type": "bind",
-			"source": "/dev/bus/usb",
-			"target": "/dev/bus/usb"
 		}
 	],
 	// Features to add to the dev container. More info: https://containers.dev/features.
