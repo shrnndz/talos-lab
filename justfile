@@ -1,11 +1,12 @@
 cluster-name := "proxmox-cluster"
 kube-api-url := "https://192.168.20.155:6443"
 endpoints := "192.168.20.150 192.168.20.151 192.168.20.152"
+kubernetes-version := "1.36.3"
 
 gen-all: gen-ctrl-configs gen-talos-config gen-kube-config
 
 gen-ctrl-configs:
-    ./scripts/gen-config.py {{cluster-name}} {{kube-api-url}}
+    ./scripts/gen-config.py {{cluster-name}} {{kube-api-url}} --kubernetes-version {{kubernetes-version}}
 
 gen-talos-config:
     talosctl gen config {{cluster-name}} {{kube-api-url}} --with-secrets secrets.yaml --output-types talosconfig --output talosconfig --force

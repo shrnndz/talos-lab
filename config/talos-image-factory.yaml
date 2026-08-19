@@ -1,0 +1,6 @@
+# Talos Image Factory schematic for the Proxmox VMs.
+# The Secure Boot model is selected by using the -secureboot installer path.
+customization:
+  systemExtensions:
+    officialExtensions:
+      - siderolabs/qemu-guest-agent

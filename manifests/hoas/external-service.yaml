@@ -52,25 +52,46 @@ spec:
     group: cert-manager.io
 
 ---
-apiVersion: traefik.io/v1alpha1
-kind: IngressRoute
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
 metadata:
   name: hoas
   namespace: hoas
   annotations:
     external-dns.alpha.kubernetes.io/target: tint.hernanfam.com
 spec:
-  entryPoints:
-    - websecure
-  routes:
-    - kind: Rule
-      match: Host(`hoas.hernanfam.com`)
-      priority: 10
-      services:
+  gatewayClassName: traefik
+  listeners:
+    - name: websecure
+      hostname: hoas.hernanfam.com
+      port: 8443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: hoas-tls
+      allowedRoutes:
+        namespaces:
+          from: Same
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: hoas
+  namespace: hoas
+spec:
+  parentRefs:
+    - name: hoas
+      sectionName: websecure
+  hostnames:
+    - hoas.hernanfam.com
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
         - name: hoas
-          kind: Service
           port: 8123
-          scheme: http
-          passHostHeader: true
-  tls:
-    secretName: hoas-tls

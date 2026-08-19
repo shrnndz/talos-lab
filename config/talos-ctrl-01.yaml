@@ -9,4 +9,8 @@ machine:
         routes:
           - network: 0.0.0.0/0 # The route's network (destination).
             gateway: 192.168.20.1 # The route's gateway (if empty, creates link scope route).
-    hostname: talos-ctrl-01
+---
+apiVersion: v1alpha1
+kind: HostnameConfig
+hostname: talos-ctrl-01
+auto: off

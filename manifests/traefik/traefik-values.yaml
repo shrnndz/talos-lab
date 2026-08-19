@@ -3,7 +3,95 @@ ingressRoute:
     entryPoints:
       - websecure
     enabled: true
-    matchRule: Host(`tint.hernanfam.com`)
+    matchRule: Host(`tint.hernanfam.com`) || Host(`tint.cercado.io`)
     services:
       - name: api@internal
         kind: TraefikService
+    tls:
+      secretName: traefik-dashboard-tls
+
+# Traefik's Helm chart configures static settings with CLI arguments. Traefik
+# does not support mixing CLI and environment-variable static configuration,
+# so the secret-backed environment variable is expanded into CLI arguments by
+# Kubernetes before the container starts.
+env:
+  - name: OPENOBSERVE_OTLP_AUTHORIZATION
+    valueFrom:
+      secretKeyRef:
+        name: traefik-openobserve-otlp
+        key: OPENOBSERVE_OTLP_AUTHORIZATION
+  # Applied after automatic resource detection.
+  - name: OTEL_RESOURCE_ATTRIBUTES
+    value: process.command_args=redacted
+
+additionalArguments:
+  - "--accesslog.otlp.http.headers.Authorization=$(OPENOBSERVE_OTLP_AUTHORIZATION)"
+  - "--log.otlp.http.headers.Authorization=$(OPENOBSERVE_OTLP_AUTHORIZATION)"
+  - "--metrics.otlp.http.headers.Authorization=$(OPENOBSERVE_OTLP_AUTHORIZATION)"
+  - "--tracing.otlp.http.headers.Authorization=$(OPENOBSERVE_OTLP_AUTHORIZATION)"
+
+experimental:
+  otlpLogs: true
+
+accessLog:
+  fields:
+    defaultMode: keep
+    headers:
+      defaultMode: drop
+      names:
+        Authorization: drop
+        Proxy-Authorization: drop
+  enabled: true
+  format: json
+  otlp:
+    enabled: true
+    http:
+      enabled: true
+      endpoint: http://opob.openobserve.svc.cluster.local:5080/api/3HPxdUiLhYxFfudXoh6upEqsqQ2/v1/logs
+      headers:
+        stream-name: cercado
+
+log:
+  # DEBUG dumps the complete static configuration, including OTLP headers.
+  level: INFO
+  otlp:
+    enabled: true
+    serviceName: traefik
+    resourceAttributes:
+      service.namespace: traefik
+      deployment.environment: talos-lab
+    http:
+      enabled: true
+      endpoint: http://opob.openobserve.svc.cluster.local:5080/api/3HPxdUiLhYxFfudXoh6upEqsqQ2/v1/logs
+      headers:
+        stream-name: cercado
+
+metrics:
+  otlp:
+    enabled: true
+    serviceName: traefik
+    resourceAttributes:
+      service.namespace: traefik
+      deployment.environment: talos-lab
+    http:
+      enabled: true
+      endpoint: http://opob.openobserve.svc.cluster.local:5080/api/3HPxdUiLhYxFfudXoh6upEqsqQ2/v1/metrics
+      headers:
+        stream-name: cercado
+
+tracing:
+  serviceName: traefik
+  sampleRate: 1.0
+  resourceAttributes:
+    service.namespace: traefik
+    deployment.environment: talos-lab
+  otlp:
+    enabled: true
+    http:
+      enabled: true
+      endpoint: http://opob.openobserve.svc.cluster.local:5080/api/3HPxdUiLhYxFfudXoh6upEqsqQ2/v1/traces
+      headers:
+        stream-name: cercado
+        tracing:
+  capturedRequestHeaders: []
+  capturedResponseHeaders: []

@@ -1,8 +1,12 @@
 # Setup
 
-## Genereate your secrets
+## Cluster secrets
 
-First thing you will need is a `secrets.yaml` file, this will be used to intract with the cluster once provisioned
+For an existing cluster, keep using its original `secrets.yaml`. Do not run
+`talosctl gen secrets`, because that creates a new cluster CA and cannot be
+used to recover access to the existing cluster.
+
+For a new cluster only, generate a new secrets file:
 
 ```bash
 talosctl gen secrets --output-file secrets.yaml

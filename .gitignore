@@ -1,8 +1,11 @@
 secrets.yaml
 secret*
 .secrets/
+__pycache__/
+*.py[cod]
 
 temp/
 
 talosconfig
 kubeconfig
+backups/

@@ -276,22 +276,46 @@ spec:
     name: cloudflare-issuer
     kind: ClusterIssuer
 ---
-apiVersion: traefik.io/v1alpha1
-kind: IngressRoute
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
 metadata:
   name: vikunja
   namespace: vikunja
   annotations:
     external-dns.alpha.kubernetes.io/target: tint.hernanfam.com
 spec:
-  entryPoints:
-    - websecure
-  routes:
-    - kind: Rule
-      match: Host(`vikunja.hernanfam.com`)
-      priority: 10
-      services:
+  gatewayClassName: traefik
+  listeners:
+    - name: websecure
+      hostname: vikunja.hernanfam.com
+      port: 8443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: vikunja-tls
+      allowedRoutes:
+        namespaces:
+          from: Same
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: vikunja
+  namespace: vikunja
+spec:
+  parentRefs:
+    - name: vikunja
+      sectionName: websecure
+  hostnames:
+    - vikunja.hernanfam.com
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
         - name: vikunja
           port: 3456
-  tls:
-    secretName: vikunja-tls

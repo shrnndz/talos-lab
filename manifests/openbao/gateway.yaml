@@ -1,0 +1,54 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: openbao
+  namespace: openbao
+  annotations:
+    external-dns.alpha.kubernetes.io/target: tint.cercado.io
+spec:
+  gatewayClassName: traefik
+  listeners:
+    - name: tls
+      hostname: bao.cercado.io
+      port: 8443
+      protocol: TLS
+      tls:
+        mode: Passthrough
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: TLSRoute
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata:
+  name: openbao
+  namespace: openbao
+spec:
+  parentRefs:
+    - name: openbao
+      sectionName: tls
+  hostnames:
+    - bao.cercado.io
+  rules:
+    - backendRefs:
+        - name: openbao
+          port: 8200
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: openbao-tls
+  namespace: openbao
+spec:
+  dnsNames:
+    - openbao.cercado.io
+    - bao.cercado.io
+    - ob.cercado.io
+  issuerRef:
+    kind: ClusterIssuer
+    name: cloudflare-issuer
+  secretName: openbao-tls
